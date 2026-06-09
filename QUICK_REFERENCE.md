@@ -31,12 +31,19 @@ uv run python stages/stage_4_milti_agent/main.py
 ```bash
 # Start tất cả services
 ./start_all.sh
+```
 
+**Windows PowerShell**
+```powershell
+.\start_all.ps1
+```
+
+```bash
 # Test hệ thống (terminal khác)
 uv run python test_client.py
 
 # Stop tất cả
-# Ctrl+C trong terminal chạy start_all.sh
+# Ctrl+C trong terminal chạy start_all.sh hoặc start_all.ps1
 ```
 
 ### Chạy Từng Service Riêng
@@ -180,7 +187,7 @@ grep "trace_id" <log_output>
 ### Common Errors
 
 **"Could not reach Customer Agent"**
-- Chưa start services: chạy `./start_all.sh`
+- Chưa start services: chạy `./start_all.sh` hoặc `.\start_all.ps1`
 - Port bị chiếm: check với `lsof -i :10100`
 
 **"API key invalid"**
@@ -188,7 +195,7 @@ grep "trace_id" <log_output>
 - Key phải bắt đầu bằng `sk-or-v1-...`
 
 **"Module not found"**
-- Chưa cài dependencies: `uv sync`
+- Chưa cài dependencies: `uv sync` (nếu `uv` chưa nhận, mở lại PowerShell sau khi cài)
 - Sai Python version: cần 3.11+
 
 **"Timeout"**

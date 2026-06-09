@@ -28,9 +28,9 @@ LEGAL_KNOWLEDGE = [
         "keywords": ["nda", "non-disclosure", "confidential", "trade secret", "breach"],
         "text": (
             "NDA breaches trigger contractual and statutory liability. Under the DTSA "
-            "(18 U.S.C. § 1836): injunctive relief, actual damages + unjust enrichment, "
+            "(18 U.S.C. Section 1836): injunctive relief, actual damages + unjust enrichment, "
             "exemplary damages up to 2x for willful misappropriation, and attorney's fees. "
-            "Criminal prosecution possible under Economic Espionage Act (18 U.S.C. § 1832)."
+            "Criminal prosecution possible under Economic Espionage Act (18 U.S.C. Section 1832)."
         ),
     },
     {
@@ -39,17 +39,17 @@ LEGAL_KNOWLEDGE = [
         "text": (
             "UCC Article 2 remedies: expectation damages, consequential damages (Hadley v. "
             "Baxendale), specific performance for unique goods, cover damages. Statute of "
-            "limitations: 4 years (UCC § 2-725)."
+            "limitations: 4 years (UCC Section 2-725)."
         ),
     },
     {
         "id": "tax_evasion",
         "keywords": ["tax", "evasion", "irs", "penalty", "fraud", "revenue"],
         "text": (
-            "Tax evasion (26 U.S.C. § 7201): felony with up to $250K fine and 5 years prison. "
-            "Civil fraud penalty: 75% of underpayment (IRC § 6663). Failure to file: up to "
+            "Tax evasion (26 U.S.C. Section 7201): felony with up to $250K fine and 5 years prison. "
+            "Civil fraud penalty: 75% of underpayment (IRC Section 6663). Failure to file: up to "
             "$25K fine and 1 year prison. IRS can assess back taxes + interest going back 6 years "
-            "(unlimited for fraud). Officers may be personally liable as 'responsible persons'."
+            "(unlimited for fraud). Officers may be personally liable as responsible persons."
         ),
     },
     {
@@ -76,9 +76,9 @@ LEGAL_KNOWLEDGE = [
         "id": "sox_compliance",
         "keywords": ["sox", "sarbanes", "compliance", "sec", "financial", "reporting"],
         "text": (
-            "SOX violations: CEO/CFO certification of false financials — up to $5M fine and "
-            "20 years prison (§ 906). Destruction of records — up to 20 years (§ 802). "
-            "Whistleblower retaliation — up to 10 years (§ 1107). SEC can bar individuals "
+            "SOX violations: CEO/CFO certification of false financials - up to $5M fine and "
+            "20 years prison (Section 906). Destruction of records - up to 20 years (Section 802). "
+            "Whistleblower retaliation - up to 10 years (Section 1107). SEC can bar individuals "
             "from serving as officers or directors."
         ),
     },
@@ -88,6 +88,7 @@ LEGAL_KNOWLEDGE = [
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
+
 
 @tool
 def search_legal_database(query: str) -> str:
@@ -172,7 +173,21 @@ def check_compliance_requirements(industry: str, company_size: str) -> str:
     )
 
 
-TOOLS = [search_legal_database, calculate_penalty, check_compliance_requirements]
+@tool
+def search_case_law(keywords: str) -> str:
+    """Search a tiny case law index by keyword."""
+    cases = {
+        "breach": "Hadley v. Baxendale (1854) - Consequential damages",
+        "negligence": "Donoghue v. Stevenson (1932) - Duty of care",
+        "contract": "Carlill v. Carbolic Smoke Ball Co (1893) - Unilateral contract",
+    }
+    for key, case in cases.items():
+        if key in keywords.lower():
+            return case
+    return "No relevant case law found."
+
+
+TOOLS = [search_legal_database, calculate_penalty, check_compliance_requirements, search_case_law]
 
 QUESTION = (
     "A tech startup with $5M revenue was caught sharing user data without consent "
@@ -181,9 +196,9 @@ QUESTION = (
 
 SYSTEM_PROMPT = (
     "You are a legal analyst agent. You have access to tools for searching legal databases, "
-    "calculating penalties, and checking compliance requirements. Use these tools to build "
-    "a comprehensive analysis. Search for each legal area separately — data privacy, tax, "
-    "and compliance. Keep your final answer under 500 words."
+    "calculating penalties, checking compliance requirements, and searching case law. Use "
+    "these tools to build a comprehensive analysis. Search for each legal area separately: "
+    "data privacy, tax, and compliance. Keep your final answer under 500 words."
 )
 
 
@@ -205,11 +220,12 @@ async def main():
     print("-" * 70)
 
     llm = get_llm()
-    graph = create_react_agent(model=llm, tools=TOOLS, prompt=SYSTEM_PROMPT)
+    graph = create_react_agent(model=llm, tools=TOOLS, prompt=SYSTEM_PROMPT, debug=True)
 
     inputs = {"messages": [{"role": "user", "content": QUESTION}]}
 
     step = 0
+    seen_final_answer = False
     async for chunk in graph.astream(inputs, stream_mode="updates"):
         for node_name, update in chunk.items():
             step += 1
@@ -224,7 +240,8 @@ async def main():
                     print(f"\n[Step {step}] OBSERVE (node: {node_name})")
                     content = msg.content
                     print(f"  Result: {content[:300]}{'...' if len(content) > 300 else ''}")
-                elif msg.type == "ai" and msg.content:
+                elif msg.type == "ai" and msg.content and not seen_final_answer:
+                    seen_final_answer = True
                     print(f"\n[Step {step}] FINAL ANSWER (node: {node_name})")
                     print("-" * 70)
                     print(msg.content)

@@ -30,6 +30,9 @@ cd legal_multiagent
 # Cài đặt dependencies
 uv sync
 
+> Windows note: sau khi cài `uv`, hãy mở lại PowerShell hoặc chạy
+> `$env:Path = "$env:USERPROFILE\.local\bin;$env:Path"` trước khi dùng `uv`.
+
 # Cấu hình environment
 cp .env.example .env
 # Sửa file .env, thêm OPENROUTER_API_KEY của bạn
@@ -65,8 +68,38 @@ uv run python stages/stage_1_direct_llm/main.py
 Mở file `stages/stage_1_direct_llm/main.py` và trả lời:
 
 1. LLM được khởi tạo như thế nào? (Tìm hàm `get_llm()`)
+
+=> Trả lời: 
+- Trong common/llm.py, hàm get_llm() tạo một ChatOpenAI(...).
+- Nó dùng:model=os.getenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-4-5")
+openai_api_key=os.getenv("OPENROUTER_API_KEY")
+openai_api_base="https://openrouter.ai/api/v1"
+
+- Tức là app gọi model qua OpenRouter, không gọi trực tiếp vào OpenAI.
+
 2. Message được gửi đến LLM có cấu trúc gì?
+
+=> Trả lời: 
+- Trong stages/stage_1_direct_llm/main.py, messages là một list gồm 2 phần:SystemMessage(...)
+HumanMessage(content=QUESTION)
+
+- Cụ thể:SystemMessage đặt vai trò và quy tắc trả lời.
+HumanMessage chứa câu hỏi người dùng.
+
+- Sau đó list này được gửi vào await llm.ainvoke(messages).
+
 3. Tại sao cần có `SystemMessage` và `HumanMessage`?
+
+=> Trả lời: 
+- SystemMessage:
+ép model vào đúng vai trò, ví dụ “legal expert”
+kiểm soát phong cách, độ dài, cách trả lời
+giúp đầu ra ổn định hơn
+- HumanMessage:
+chứa nội dung câu hỏi thực tế
+là input mà người dùng muốn hỏi
+- Nói ngắn gọn: SystemMessage điều khiển cách trả lời, HumanMessage cung cấp câu hỏi.
+
 
 **Bài Tập 1.1:** Thay đổi câu hỏi
 
@@ -335,6 +368,12 @@ Customer Agent (10100) → Law Agent (10101)
 ./start_all.sh
 ```
 
+Trên Windows PowerShell:
+
+```powershell
+.\start_all.ps1
+```
+
 Chờ ~10 giây để tất cả services khởi động.
 
 **Bước 2:** Test hệ thống
@@ -383,10 +422,72 @@ Sửa `tax_agent/graph.py`, thay đổi system prompt để agent trả lời ng
 ### Câu Hỏi Ôn Tập
 
 1. Khi nào nên dùng single agent thay vì multi-agent?
+- Dùng single agent khi bài toán:
+  - khá nhỏ, ít domain
+  - không cần chuyên môn hóa
+  - không cần chạy song song
+  - ưu tiên đơn giản, dễ debug, ít overhead
+- Dùng multi-agent khi:
+  - bài toán có nhiều domain khác nhau
+cần specialist agents
+  - muốn xử lý song song
+  - cần mở rộng hệ thống theo module
+- Nói ngắn gọn:
+  - Single agent = nhanh, đơn giản, ít phức tạp
+  - Multi-agent = mạnh hơn cho bài toán lớn, nhưng khó vận hành hơn
 2. Ưu điểm của A2A protocol so với gRPC hoặc REST thông thường?
+- A2A phù hợp với agent-to-agent collaboration hơn vì:
+  - có khái niệm Agent Card để mô tả năng lực agent
+  - hỗ trợ task/message theo kiểu agent, không chỉ request/response thô
+  - có thể discover agent động qua Registry
+hỗ trợ trace/context propagation tốt hơn cho chuỗi agent
+  - hợp với workflow nhiều bước, nhiều agent chuyên biệt
+- So với REST/gRPC truyền thống:
+  - REST/gRPC là giao thức tổng quát
+A2A được thiết kế riêng cho agent
+- Trong repo này:
+  - Customer Agent phát hiện Law Agent qua Registry
+  - Law Agent lại gọi Tax/Compliance Agent
+  - kiểu flow này tự nhiên hơn với A2A
 3. Làm thế nào để prevent infinite delegation loops trong A2A?
-4. Tại sao cần Registry service? Có thể hardcode URLs không?
 
+- Cần đặt giới hạn độ sâu delegation
+  - ví dụ delegation_depth
+  - mỗi lần delegate thì tăng 1
+  - nếu vượt MAX_DELEGATION_DEPTH thì dừng
+- Cần có routing rules rõ ràng
+  - agent nào được gọi ai
+  - tránh vòng tròn kiểu A gọi B, B gọi A, A gọi lại B
+- Cần trace_id / context_id để theo dõi request
+  - giúp debug loop
+- Cần có fallback / stop condition
+  - nếu không có agent phù hợp hoặc tool fail thì trả kết quả cuối thay vì gọi tiếp
+- Trong repo này, cách chặn chính là:
+delegation_depth
+  - MAX_DELEGATION_DEPTH
+- Ngoài ra nên có:
+  - timeout
+  - retry giới hạn
+  - logging đầy đủ
+4. Tại sao cần Registry service? Có thể hardcode URLs không?
+- Registry service cần để:
+  - discover agent động
+  - không phụ thuộc URL cố định
+  - dễ thay đổi / scale / restart agent
+  - chịu lỗi tốt hơn khi agent đổi port hoặc đổi endpoint
+- Nếu hardcode URLs:
+  - code đơn giản hơn
+nhưng rất cứng
+  - agent đổi port là hỏng
+  - khó scale nhiều instance
+  - khó thay thế implementation
+- Trong hệ thống này, Registry giúp:
+  - Customer Agent chỉ cần biết task, ví dụ legal_question
+  - Law Agent tìm tax_question, compliance_question
+  - không cần nhớ IP/port cố định
+- Kết luận:
+  - Hardcode URL chỉ hợp demo nhỏ
+  - Registry là cách đúng nếu muốn hệ thống linh hoạt và production-like
 ### Bài Tập Nâng Cao (Tự Học)
 
 **Challenge 1:** Thêm memory/conversation history

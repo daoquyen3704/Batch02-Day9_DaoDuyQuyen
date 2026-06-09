@@ -34,7 +34,7 @@ async def main() -> None:
         except Exception as e:
             print(f"ERROR: Could not reach Customer Agent at {card_url}")
             print(f"  {e}")
-            print("Make sure all services are running (./start_all.sh)")
+            print("Make sure all services are running (./start_all.sh or .\\start_all.ps1)")
             sys.exit(1)
 
         from a2a.types import AgentCard, Message, Part, Role, TextPart, MessageSendParams
@@ -64,26 +64,48 @@ async def main() -> None:
         response = await client.send_message(request)
 
         # Parse response
+        def extract_text_from_parts(parts) -> str:
+            text = ""
+            if not parts:
+                return text
+            for part in parts:
+                p = part.root if hasattr(part, "root") else part
+                if hasattr(p, "text") and p.text:
+                    text += p.text
+            return text
+
         result_text = ""
+        task_state = None
+
         if hasattr(response, "root"):
             root = response.root
             if hasattr(root, "result"):
                 result = root.result
+                task_state = getattr(getattr(result, "status", None), "state", None)
+
                 # Task with artifacts
                 if hasattr(result, "artifacts") and result.artifacts:
                     for artifact in result.artifacts:
-                        for part in artifact.parts:
-                            p = part.root if hasattr(part, "root") else part
-                            if hasattr(p, "text"):
-                                result_text += p.text
+                        result_text += extract_text_from_parts(getattr(artifact, "parts", []))
+
                 # Message with parts
-                elif hasattr(result, "parts") and result.parts:
-                    for part in result.parts:
-                        p = part.root if hasattr(part, "root") else part
-                        if hasattr(p, "text"):
-                            result_text += p.text
+                if not result_text and hasattr(result, "parts") and result.parts:
+                    result_text += extract_text_from_parts(result.parts)
+
+                # Failed task / status message fallback
+                if not result_text and hasattr(result, "status") and result.status:
+                    status_msg = getattr(result.status, "message", None)
+                    if status_msg and hasattr(status_msg, "parts"):
+                        result_text += extract_text_from_parts(status_msg.parts)
+
+                # History fallback
+                if not result_text and hasattr(result, "history") and result.history:
+                    for msg in result.history:
+                        result_text += extract_text_from_parts(getattr(msg, "parts", []))
 
         if result_text:
+            if task_state:
+                print(f"Task state: {task_state}")
             print("RESPONSE:")
             print("=" * 60)
             print(result_text)

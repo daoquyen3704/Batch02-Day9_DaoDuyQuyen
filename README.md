@@ -127,7 +127,15 @@ cp .env.example .env
 ```bash
 # Start all 5 services (registry + 4 agents)
 ./start_all.sh
+```
 
+Trên Windows PowerShell:
+
+```powershell
+.\start_all.ps1
+```
+
+```bash
 # In another terminal, send a test question
 uv run python test_client.py
 ```
@@ -162,6 +170,7 @@ Each stage's folder includes an `architecture.svg` diagram and a self-contained 
 ```
 legal_multiagent/
 ├── start_all.sh               # Launches all services in correct order
+├── start_all.ps1              # PowerShell launcher for Windows
 ├── test_client.py             # E2E test client
 ├── pyproject.toml             # Dependencies (uv-managed)
 ├── .env.example               # Required environment variables
@@ -195,11 +204,15 @@ Each agent module follows the same structure:
 
 | Environment Variable | Description | Default |
 |---|---|---|
-| `OPENROUTER_API_KEY` | Your OpenRouter API key | (required) |
-| `OPENROUTER_MODEL` | Model identifier | `anthropic/claude-sonnet-4-5` |
+| `LLM_PROVIDER` | `openrouter` or `custom` | `openrouter` |
+| `OPENROUTER_API_KEY` | Your OpenRouter API key | (required for OpenRouter) |
+| `OPENROUTER_MODEL` | OpenRouter model identifier | `anthropic/claude-sonnet-4-5` |
+| `CUSTOM_LLM_API_KEY` | DashScope / custom OpenAI-compatible key | (required for `custom`) |
+| `CUSTOM_LLM_MODEL` | DashScope / custom model identifier | `qwen-max` |
+| `CUSTOM_LLM_BASE_URL` | DashScope / custom base URL | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` |
 | `REGISTRY_URL` | Registry service URL | `http://localhost:10000` |
 
-The model is swappable to any OpenRouter-supported model (e.g., `openai/gpt-4o`, `google/gemini-2.0-flash`).
+The model is swappable to any provider supported by the selected OpenAI-compatible backend. For DashScope compatible mode, use the API key and base URL for the same region.
 
 ## Documentation Diagrams
 

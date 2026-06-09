@@ -2,7 +2,7 @@
 
 Adds retrieval-augmented generation and tool use to ground LLM responses
 in external data. The LLM can now search a legal knowledge base and
-calculate damages — but the orchestration is manual (one tool-call loop).
+calculate damages - but the orchestration is manual (one tool-call loop).
 """
 
 import asyncio
@@ -27,11 +27,11 @@ LEGAL_KNOWLEDGE = [
         "keywords": ["breach", "contract", "remedies", "damages", "ucc"],
         "text": (
             "Under the Uniform Commercial Code (UCC) Article 2, remedies for breach of contract "
-            "include: (1) expectation damages — placing the non-breaching party in the position "
+            "include: (1) expectation damages - placing the non-breaching party in the position "
             "they would have been in had the contract been performed; (2) consequential damages "
             "for foreseeable losses (Hadley v. Baxendale, 1854); (3) specific performance when "
-            "the subject matter is unique; (4) cover damages — the cost of obtaining substitute "
-            "performance. The statute of limitations is typically 4 years (UCC § 2-725)."
+            "the subject matter is unique; (4) cover damages - the cost of obtaining substitute "
+            "performance. The statute of limitations is typically 4 years (UCC Section 2-725)."
         ),
     },
     {
@@ -39,12 +39,12 @@ LEGAL_KNOWLEDGE = [
         "keywords": ["nda", "non-disclosure", "confidential", "trade secret", "agreement"],
         "text": (
             "NDA breaches may trigger both contractual and statutory liability. Under the Defend "
-            "Trade Secrets Act (DTSA, 18 U.S.C. § 1836), misappropriation of trade secrets can "
+            "Trade Secrets Act (DTSA, 18 U.S.C. Section 1836), misappropriation of trade secrets can "
             "result in: (1) injunctive relief; (2) actual damages plus unjust enrichment; "
             "(3) exemplary damages up to 2x actual damages for willful misappropriation; "
             "(4) attorney's fees. State Uniform Trade Secrets Act (UTSA) versions provide "
             "additional remedies. Criminal prosecution is possible under the Economic Espionage "
-            "Act (18 U.S.C. § 1832) with penalties up to $5M for individuals."
+            "Act (18 U.S.C. Section 1832) with penalties up to $5M for individuals."
         ),
     },
     {
@@ -65,7 +65,7 @@ LEGAL_KNOWLEDGE = [
             "Liquidated damages clauses in NDAs are enforceable if: (1) actual damages would be "
             "difficult to calculate at the time of contracting; (2) the stipulated amount is a "
             "reasonable estimate of anticipated harm. Courts will void clauses that function as "
-            "penalties (Restatement (Second) of Contracts § 356). Typical NDA liquidated damages "
+            "penalties (Restatement (Second) of Contracts Section 356). Typical NDA liquidated damages "
             "range from $10,000 to $500,000 depending on the nature of the confidential information."
         ),
     },
@@ -75,10 +75,20 @@ LEGAL_KNOWLEDGE = [
         "text": (
             "Courts routinely grant temporary restraining orders (TROs) and preliminary injunctions "
             "for NDA breaches because: (1) confidential information, once disclosed, cannot be "
-            "'un-disclosed' — making monetary damages inadequate; (2) irreparable harm is presumed "
+            "'un-disclosed' - making monetary damages inadequate; (2) irreparable harm is presumed "
             "for trade secret misappropriation in many jurisdictions. The movant must show "
             "likelihood of success on the merits, irreparable harm, balance of equities, and "
             "public interest (Winter v. Natural Resources Defense Council, 2008)."
+        ),
+    },
+    {
+        "id": "labor_law",
+        "keywords": ["labor", "termination", "sa thai", "hop dong lao dong", "lao dong"],
+        "text": (
+            "Theo Bo luat Lao dong Viet Nam 2019, nguoi su dung lao dong co the don phuong "
+            "cham dut hop dong trong cac truong hop: (1) nguoi lao dong thuong xuyen khong hoan "
+            "thanh cong viec; (2) bi om dau, tai nan da dieu tri 12 thang chua khoi; "
+            "(3) thien tai, hoa hoan; (4) nguoi lao dong du tuoi nghi huu."
         ),
     },
 ]
@@ -87,6 +97,7 @@ LEGAL_KNOWLEDGE = [
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
+
 
 @tool
 def search_legal_database(query: str) -> str:
@@ -135,7 +146,18 @@ def calculate_damages(breach_type: str, contract_value: float) -> str:
     )
 
 
-TOOLS = [search_legal_database, calculate_damages]
+@tool
+def check_statute_of_limitations(case_type: str) -> str:
+    """Check the statute of limitations by case type."""
+    limits = {
+        "contract": "4 years (UCC Section 2-725)",
+        "tort": "2-3 years depending on the state",
+        "property": "5 years",
+    }
+    return limits.get(case_type.lower(), "Not specified")
+
+
+TOOLS = [search_legal_database, calculate_damages, check_statute_of_limitations]
 
 QUESTION = "What are the legal consequences if a company breaches a non-disclosure agreement?"
 
